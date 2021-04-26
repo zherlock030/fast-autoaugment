@@ -1,5 +1,5 @@
 import copy
-
+import sys
 import torch
 import numpy as np
 from collections import defaultdict
@@ -9,17 +9,28 @@ from torch import nn
 
 def accuracy(output, target, topk=(1,)):
     """Computes the precision@k for the specified values of k"""
+    #print('output is ', output)
+    #print('target is ', target)
     maxk = max(topk)
     batch_size = target.size(0)
 
     _, pred = output.topk(maxk, 1, True, True)
+    #print('pred_0 is ', pred)
     pred = pred.t()
     correct = pred.eq(target.view(1, -1).expand_as(pred))
+    #print('correct_0 is ', correct)
 
     res = []
+    #print('correct shape, ',correct.shape)
     for k in topk:
-        correct_k = correct[:k].view(-1).float().sum(0)
+        #print('k is ', k)
+        #print('correctk is ,',  correct[:k])
+        #correct_k = correct[:k].view(-1).float().sum(0) # edit by ZH
+        correct_k = correct[:k].reshape(-1).float().sum(0)
+        #print('correctk is ,',  correct_k)
+        #print('add is ', correct_k.mul_(1. / batch_size))
         res.append(correct_k.mul_(1. / batch_size))
+    #sys.exit(0)
     return res
 
 

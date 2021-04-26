@@ -83,7 +83,9 @@ def get_model(conf, num_class=10, local_rank=-1):
         model = model.to(device)
         model = DistributedDataParallel(model, device_ids=[local_rank], output_device=local_rank)
     else:
-        model = model.cuda()
+        device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
+        model = model.to(device)
+        # model = model.cuda() #TODO 
 #         model = DataParallel(model)
 
     cudnn.benchmark = True

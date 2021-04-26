@@ -46,7 +46,8 @@ def run_epoch(model, loader, loss_fn, optimizer, desc_default='', epoch=0, write
     steps = 0
     for data, label in loader:
         steps += 1
-        data, label = data.cuda(), label.cuda()
+        device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
+        data, label = data.to(device), label.to(device)
 
         if C.get().conf.get('mixup', 0.0) <= 0.0 or optimizer is None:
             preds = model(data)
@@ -70,6 +71,8 @@ def run_epoch(model, loader, loss_fn, optimizer, desc_default='', epoch=0, write
                 ema(model, (epoch - 1) * total_steps + steps)
 
         top1, top5 = accuracy(preds, label, (1, 5))
+        #top1 = accuracy(preds, label, (1))
+        #top5 = torch.Tensor(0.0)
         metrics.add_dict({
             'loss': loss.item() * len(data),
             'top1': top1.item() * len(data),
@@ -120,7 +123,8 @@ def train_and_eval(tag, dataroot, test_ratio=0.0, cv_fold=0, reporter=None, metr
 
     is_master = local_rank < 0 or dist.get_rank() == 0
     if is_master:
-        add_filehandler(logger, args.save + '.log')
+        add_filehandler(logger, 'lol.log')
+        #add_filehandler(logger, args.save + '.log')
 
     if not reporter:
         reporter = lambda **kwargs: 0
