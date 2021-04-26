@@ -249,10 +249,11 @@ if __name__ == '__main__':
         pretrain_results = reqs
     for r_model, r_cv, r_dict in pretrain_results:
         logger.info('model=%s cv=%d top1_train=%.4f top1_valid=%.4f' % (r_model, r_cv+1, r_dict['top1_train'], r_dict['top1_valid']))
-    logger.info('processed in %.4f secs' % w.pause('train_no_aug'))
-    sys.exit(0)
+    print('watch is ', w.pause('train_no_aug'))
+    #logger.info('processed in %.4f secs' % w.pause('train_no_aug'))
+    #sys.exit(0)
     
-    if args.until == 1:
+    if args.until == 1: #? 不知道的参数
         sys.exit(0)
 
     logger.info('----- Search Test-Time Augmentation Policies -----')
@@ -266,6 +267,11 @@ if __name__ == '__main__':
             space['policy_%d_%d' % (i, j)] = hp.choice('policy_%d_%d' % (i, j), list(range(0, len(ops))))
             space['prob_%d_%d' % (i, j)] = hp.uniform('prob_%d_ %d' % (i, j), 0.0, 1.0)
             space['level_%d_%d' % (i, j)] = hp.uniform('level_%d_ %d' % (i, j), 0.0, 1.0)
+    print('policy is , ', space['policy_0_0'])
+    print('prob is , ', space['prob_0_0'])
+    print('level is , ', space['level_0_0'])
+
+    sys.exit(0)
 
     final_policy_set = []
     total_computation = 0
