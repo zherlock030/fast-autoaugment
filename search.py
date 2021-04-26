@@ -253,7 +253,7 @@ if __name__ == '__main__':
     #print('watch is ', w.pause('train_no_aug'))
     w.pause('train_no_aug')
     # ! watch的结果是none，需要查阅api
-    logger.info('processed in %.4f secs' % w) 
+    #logger.info('processed in %.4f secs' % w) 
     #sys.exit(0)
     
     if args.until == 1: #? 不知道的参数
@@ -318,7 +318,9 @@ if __name__ == '__main__':
 
     logger.info(json.dumps(final_policy_set))
     logger.info('final_policy=%d' % len(final_policy_set))
-    logger.info('processed in %.4f secs, gpu hours=%.4f' % (w.pause('search'), total_computation / 3600.))
+    w.pause('search')
+    print(w)
+    #logger.info('processed in %.4f secs, gpu hours=%.4f' % (w.pause('search'), total_computation / 3600.))
     logger.info('----- Train with Augmentations model=%s dataset=%s aug=%s ratio(test)=%.1f -----' % (C.get()['model']['type'], C.get()['dataset'], C.get()['aug'], args.cv_ratio))
     #? 看起来在这里以上就把policy搜索完了？
     
@@ -380,6 +382,6 @@ if __name__ == '__main__':
             avg += r_dict['top1_test']
         avg /= num_experiments
         logger.info('[%s] top1_test average=%.4f (#experiments=%d)' % (train_mode, avg, num_experiments))
-    logger.info('processed in %.4f secs' % w.pause('train_aug'))
+    #logger.info('processed in %.4f secs' % w.pause('train_aug'))
 
     logger.info(w)
