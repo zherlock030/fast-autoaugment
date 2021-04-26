@@ -218,7 +218,7 @@ if __name__ == '__main__':
             for cv_idx in range(cv_num):
                 try:
                     latest_ckpt = torch.load(paths[cv_idx]) # 加载一个刚训练好的模型
-                    print('latest ckpt,', latest_ckpt)
+                    #print('latest ckpt,', latest_ckpt)
                     if 'epoch' not in latest_ckpt:
                         print('not in')
                         epochs_per_cv['cv%d' % (cv_idx + 1)] = C.get()['epoch']
