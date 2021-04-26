@@ -12,7 +12,8 @@ import ray
 import gorilla
 from ray.tune.trial import Trial
 from ray.tune.trial_runner import TrialRunner
-from ray.tune.suggest import HyperOptSearch
+from ray.tune.suggest.hyperopt import HyperOptSearch
+#from ray.tune.suggest import HyperOptSearch # function removed
 from ray.tune import register_trainable, run_experiments
 from tqdm import tqdm
 
@@ -249,8 +250,10 @@ if __name__ == '__main__':
         pretrain_results = reqs
     for r_model, r_cv, r_dict in pretrain_results:
         logger.info('model=%s cv=%d top1_train=%.4f top1_valid=%.4f' % (r_model, r_cv+1, r_dict['top1_train'], r_dict['top1_valid']))
-    print('watch is ', w.pause('train_no_aug'))
-    #logger.info('processed in %.4f secs' % w.pause('train_no_aug'))
+    #print('watch is ', w.pause('train_no_aug'))
+    w.pause('train_no_aug')
+    # ! watch的结果是none，需要查阅api
+    logger.info('processed in %.4f secs' % w) 
     #sys.exit(0)
     
     if args.until == 1: #? 不知道的参数
@@ -262,6 +265,7 @@ if __name__ == '__main__':
     ops = augment_list(False) # op操作列表，false去掉了最后几个op
     space = {} # 用于超参数搜索，结合hp包使用
     # ? 5个policy会不会太少
+    # hp.choice或者hp.uniform只是代表了一个搜索空间
     for i in range(args.num_policy): # args.num_policy 5
         for j in range(args.num_op): # args.num_policy 2
             space['policy_%d_%d' % (i, j)] = hp.choice('policy_%d_%d' % (i, j), list(range(0, len(ops))))
@@ -271,7 +275,7 @@ if __name__ == '__main__':
     print('prob is , ', space['prob_0_0'])
     print('level is , ', space['level_0_0'])
 
-    sys.exit(0)
+    # sys.exit(0)
 
     final_policy_set = []
     total_computation = 0
@@ -281,7 +285,7 @@ if __name__ == '__main__':
             name = "search_%s_%s_fold%d_ratio%.1f" % (C.get()['dataset'], C.get()['model']['type'], cv_fold, args.cv_ratio)
             print(name)
             register_trainable(name, lambda augs, rpt: eval_tta(copy.deepcopy(copied_c), augs, rpt))
-            algo = HyperOptSearch(space, max_concurrent=4*20, reward_attr=reward_attr)
+            algo = HyperOptSearch(space, max_concurrent=4*20, reward_attr=reward_attr) #! 函数过时了，reward_attr 可能是metric
 
             exp_config = {
                 name: {
@@ -297,7 +301,6 @@ if __name__ == '__main__':
                 }
             }
             results = run_experiments(exp_config, search_alg=algo, scheduler=None, verbose=0, queue_trials=True, resume=args.resume, raise_on_failed_trial=False)
-            print()
             results = [x for x in results if x.last_result is not None]
             results = sorted(results, key=lambda x: x.last_result[reward_attr], reverse=True)
 
@@ -311,19 +314,30 @@ if __name__ == '__main__':
 
                 final_policy = remove_deplicates(final_policy)
                 final_policy_set.extend(final_policy)
+    
 
     logger.info(json.dumps(final_policy_set))
     logger.info('final_policy=%d' % len(final_policy_set))
     logger.info('processed in %.4f secs, gpu hours=%.4f' % (w.pause('search'), total_computation / 3600.))
     logger.info('----- Train with Augmentations model=%s dataset=%s aug=%s ratio(test)=%.1f -----' % (C.get()['model']['type'], C.get()['dataset'], C.get()['aug'], args.cv_ratio))
+    #? 看起来在这里以上就把policy搜索完了？
+    
     w.start(tag='train_aug')
 
     num_experiments = 5
     default_path = [_get_path(C.get()['dataset'], C.get()['model']['type'], 'ratio%.1f_default%d' % (args.cv_ratio, _)) for _ in range(num_experiments)]
     augment_path = [_get_path(C.get()['dataset'], C.get()['model']['type'], 'ratio%.1f_augment%d' % (args.cv_ratio, _)) for _ in range(num_experiments)]
-    reqs = [train_model.remote(copy.deepcopy(copied_c), args.dataroot, C.get()['aug'], 0.0, 0, save_path=default_path[_], skip_exist=True) for _ in range(num_experiments)] + \
-        [train_model.remote(copy.deepcopy(copied_c), args.dataroot, final_policy_set, 0.0, 0, save_path=augment_path[_]) for _ in range(num_experiments)]
+    print('default path is ', default_path)
+    print('augment path is ', augment_path)
+    if args.remote:
+        reqs = [train_model.remote(copy.deepcopy(copied_c), args.dataroot, C.get()['aug'], 0.0, 0, save_path=default_path[_], skip_exist=True) for _ in range(num_experiments)] + \
+            [train_model.remote(copy.deepcopy(copied_c), args.dataroot, final_policy_set, 0.0, 0, save_path=augment_path[_]) for _ in range(num_experiments)]
+    else:
+        reqs = [train_model(copy.deepcopy(copied_c), args.dataroot, C.get()['aug'], 0.0, 0, save_path=default_path[_], skip_exist=True) for _ in range(num_experiments)] + \
+            [train_model(copy.deepcopy(copied_c), args.dataroot, final_policy_set, 0.0, 0, save_path=augment_path[_]) for _ in range(num_experiments)]
 
+    
+    #? 又来了，这段丝毫看不出意义的code，似乎只是确认了存在一些已训练好的模型而且epoch数足够
     tqdm_epoch = tqdm(range(C.get()['epoch'])) # progress bar
     is_done = False
     for epoch in tqdm_epoch:
@@ -353,7 +367,10 @@ if __name__ == '__main__':
             break
 
     logger.info('getting results...')
-    final_results = ray.get(reqs)
+    if args.remote:
+        final_results = ray.get(reqs)
+    else:
+        final_results = reqs
 
     for train_mode in ['default', 'augment']:
         avg = 0.
@@ -366,6 +383,3 @@ if __name__ == '__main__':
     logger.info('processed in %.4f secs' % w.pause('train_aug'))
 
     logger.info(w)
-
-
-# H:\JupyterCode\fast-autoaugment\FastAutoAugment\networks\__init__.py getmodel里面的model.cuda()被修改了
