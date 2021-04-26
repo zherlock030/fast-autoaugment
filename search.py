@@ -23,7 +23,7 @@ from FastAutoAugment.data import get_dataloaders
 from FastAutoAugment.metrics import Accumulator
 from FastAutoAugment.networks import get_model, num_class
 from FastAutoAugment.train import train_and_eval
-from theconf import Config as C, ConfigArgumentParser
+from theconf import Config as C, ConfigArgumentParser 
 
 
 top1_valid_by_cv = defaultdict(lambda: list)
@@ -158,7 +158,7 @@ if __name__ == '__main__':
     parser.add_argument('--num-search', type=int, default=200) # ?还不确定,论文里写是每次贝叶斯优化的策略集合B的大小
     parser.add_argument('--cv-ratio', type=float, default=0.4) # ?交叉验证的比例
     parser.add_argument('--decay', type=float, default=-1) # ?可能是学习率衰减
-    parser.add_argument('--redis', type=str, default='gpu-cloud-vnode30.dakao.io:23655') # !分布式相关的，要怎么去掉呢
+    parser.add_argument('--redis', type=str, default='gpu-cloud-vnode30.dakao.io:23655') # 分布式相关的
     parser.add_argument('--per-class', action='store_true') # ?
     parser.add_argument('--resume', action='store_true') # ?应该是是否复用模型的参数吧
     parser.add_argument('--smoke-test', action='store_true') # ?
@@ -238,8 +238,8 @@ if __name__ == '__main__':
         if is_done:
             print('break outter loop')
             break
-    print('tag 1')
-    sys.exit(0)
+    logger.debug('useless code finished')
+    #sys.exit(0)
     
 
     logger.info('getting results...')
@@ -250,7 +250,8 @@ if __name__ == '__main__':
     for r_model, r_cv, r_dict in pretrain_results:
         logger.info('model=%s cv=%d top1_train=%.4f top1_valid=%.4f' % (r_model, r_cv+1, r_dict['top1_train'], r_dict['top1_valid']))
     logger.info('processed in %.4f secs' % w.pause('train_no_aug'))
-
+    sys.exit(0)
+    
     if args.until == 1:
         sys.exit(0)
 

@@ -111,7 +111,7 @@ def run_epoch(model, loader, loss_fn, optimizer, desc_default='', epoch=0, write
 
 
 def train_and_eval(tag, dataroot, test_ratio=0.0, cv_fold=0, reporter=None, metric='last', save_path=None, only_eval=False, local_rank=-1, evaluation_interval=5):
-    total_batch = C.get()["batch"]
+    total_batch = C.get()["batch"] 
     if local_rank >= 0:
         dist.init_process_group(backend='nccl', init_method='env://', world_size=int(os.environ['WORLD_SIZE']))
         device = torch.device('cuda', local_rank)
@@ -121,11 +121,11 @@ def train_and_eval(tag, dataroot, test_ratio=0.0, cv_fold=0, reporter=None, metr
         logger.info(f'local batch={C.get()["batch"]} world_size={dist.get_world_size()} ----> total batch={C.get()["batch"] * dist.get_world_size()}')
         total_batch = C.get()["batch"] * dist.get_world_size()
 
-    is_master = local_rank < 0 or dist.get_rank() == 0
+    is_master = local_rank < 0 or dist.get_rank() == 0 # is_master = true
     if is_master:
-        add_filehandler(logger, 'lol.log')
-        #add_filehandler(logger, args.save + '.log')
-
+        add_filehandler(logger, 'lol.log') # 一个新的log文件
+        #add_filehandler(logger, args.save + '.log') # 无效path
+ 
     if not reporter:
         reporter = lambda **kwargs: 0
 
@@ -134,7 +134,7 @@ def train_and_eval(tag, dataroot, test_ratio=0.0, cv_fold=0, reporter=None, metr
 
     # create a model & an optimizer
     model = get_model(C.get()['model'], num_class(C.get()['dataset']), local_rank=local_rank)
-    model_ema = get_model(C.get()['model'], num_class(C.get()['dataset']), local_rank=-1)
+    model_ema = get_model(C.get()['model'], num_class(C.get()['dataset']), local_rank=-1) # model_ema是干嘛的
     model_ema.eval()
 
     criterion_ce = criterion = CrossEntropyLabelSmooth(num_class(C.get()['dataset']), C.get().conf.get('lb_smooth', 0))
@@ -176,7 +176,7 @@ def train_and_eval(tag, dataroot, test_ratio=0.0, cv_fold=0, reporter=None, metr
             total_epoch=C.get()['lr_schedule']['warmup']['epoch'],
             after_scheduler=scheduler
         )
-
+    print('tag is ', tag)
     if not tag or not is_master:
         from FastAutoAugment.metrics import SummaryWriterDummy as SummaryWriter
         logger.warning('tag not provided, no tensorboard log.')
@@ -188,7 +188,7 @@ def train_and_eval(tag, dataroot, test_ratio=0.0, cv_fold=0, reporter=None, metr
         # https://discuss.pytorch.org/t/how-to-apply-exponential-moving-average-decay-for-variables/10856/4?u=ildoonet
         ema = EMA(C.get()['optimizer']['ema'])
     else:
-        ema = None
+        ema = None # 进入none
 
     result = OrderedDict()
     epoch_start = 1
@@ -203,14 +203,17 @@ def train_and_eval(tag, dataroot, test_ratio=0.0, cv_fold=0, reporter=None, metr
             else:
                 logger.info('checkpoint epoch@%d' % data['epoch'])
                 if not isinstance(model, (DataParallel, DistributedDataParallel)):
+                    print('get in not parallel')
                     model.load_state_dict({k.replace('module.', ''): v for k, v in data[key].items()})
                 else:
+                    print('get in parallel')
                     model.load_state_dict({k if 'module.' in k else 'module.'+k: v for k, v in data[key].items()})
                 logger.info('optimizer.load_state_dict+')
-                optimizer.load_state_dict(data['optimizer'])
+                optimizer.load_state_dict(data['optimizer']) # optimizer也加载上次状态
                 if data['epoch'] < C.get()['epoch']:
                     epoch_start = data['epoch']
                 else:
+                    print('only eval true')
                     only_eval = True
                 if ema is not None:
                     ema.shadow = data.get('ema', {}) if isinstance(data.get('ema', {}), dict) else data['ema'].state_dict()
@@ -229,6 +232,7 @@ def train_and_eval(tag, dataroot, test_ratio=0.0, cv_fold=0, reporter=None, metr
 
     tqdm_disabled = bool(os.environ.get('TASK_NAME', '')) and local_rank != 0  # KakaoBrain Environment
 
+    #? only eval的模式下，也要运行一个epoch来获得loss之类的
     if only_eval:
         logger.info('evaluation only+')
         model.eval()
@@ -248,7 +252,7 @@ def train_and_eval(tag, dataroot, test_ratio=0.0, cv_fold=0, reporter=None, metr
             result['%s_%s' % (key, setname)] = rs[setname][key]
         result['epoch'] = 0
         return result
-
+    logger.debug('get into train stage')
     # train loop
     best_top1 = 0
     for epoch in range(epoch_start, max_epoch + 1):
