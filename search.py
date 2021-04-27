@@ -15,6 +15,7 @@ from ray.tune.trial_runner import TrialRunner
 from ray.tune.suggest.hyperopt import HyperOptSearch
 #from ray.tune.suggest import HyperOptSearch # function removed
 from ray.tune import register_trainable, run_experiments
+from ray.tune import run # by zh
 from tqdm import tqdm
 
 from FastAutoAugment.archive import remove_deplicates, policy_decoder
@@ -182,7 +183,8 @@ if __name__ == '__main__':
         ray.init(redis_address=args.redis) # 启动分布式
 
     num_result_per_cv = 10 # ? 可能是交叉验证那个
-    cv_num = 5 # ? 可能是交叉验证那个
+    #cv_num = 5 # ? 可能是交叉验证那个
+    cv_num = 1 # ! temp change
     copied_c = copy.deepcopy(C.get().conf) #copy一份config
 
     logger.info('search augmentation policies, dataset=%s model=%s' % (C.get()['dataset'], C.get()['model']['type']))
@@ -284,8 +286,16 @@ if __name__ == '__main__':
         for cv_fold in range(cv_num):
             name = "search_%s_%s_fold%d_ratio%.1f" % (C.get()['dataset'], C.get()['model']['type'], cv_fold, args.cv_ratio)
             print(name)
-            register_trainable(name, lambda augs, rpt: eval_tta(copy.deepcopy(copied_c), augs, rpt))
-            algo = HyperOptSearch(space, max_concurrent=4*20, reward_attr=reward_attr) #! 函数过时了，reward_attr 可能是metric
+            try:
+                register_trainable(name, lambda augs, rpt: eval_tta(copy.deepcopy(copied_c), augs, rpt)) # 原代码写法
+            except:
+                pass
+            #try:
+            #    register_trainable(name, lambda config, reporter: eval_tta(copy.deepcopy(config), augs, reporter)) # 写法1,暂时可以运行
+            #except:
+            #    pass
+            # algo = HyperOptSearch(space, max_concurrent=4*20, reward_attr=reward_attr) #! 函数过时了，reward_attr 可能是metric
+            algo = HyperOptSearch(space, max_concurrent=4*20, metric=reward_attr)
 
             exp_config = {
                 name: {
@@ -300,7 +310,9 @@ if __name__ == '__main__':
                     },
                 }
             }
-            results = run_experiments(exp_config, search_alg=algo, scheduler=None, verbose=0, queue_trials=True, resume=args.resume, raise_on_failed_trial=False)
+            results = run_experiments(exp_config, search_alg=algo, scheduler=None, verbose=0, queue_trials=True, resume=args.resume, raise_on_failed_trial=False) # 参数过时了
+            #results = run(exp_config, search_alg=algo, scheduler=None, verbose=0, queue_trials=True, resume=args.resume, raise_on_failed_trial=False)
+
             results = [x for x in results if x.last_result is not None]
             results = sorted(results, key=lambda x: x.last_result[reward_attr], reverse=True)
 
@@ -323,6 +335,7 @@ if __name__ == '__main__':
     #logger.info('processed in %.4f secs, gpu hours=%.4f' % (w.pause('search'), total_computation / 3600.))
     logger.info('----- Train with Augmentations model=%s dataset=%s aug=%s ratio(test)=%.1f -----' % (C.get()['model']['type'], C.get()['dataset'], C.get()['aug'], args.cv_ratio))
     #? 看起来在这里以上就把policy搜索完了？
+    sys.exit(0)
     
     w.start(tag='train_aug')
 
